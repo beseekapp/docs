@@ -10,6 +10,8 @@ nav:
     - 'Analyzing Results': 'user-guides/analyzing-results.md'
     - 'Exporting and Saving': 'user-guides/exporting-and-saving.md'
   - Features:
+    - 'AI Inference': 'features/ai-inference.md'
+    - 'Data Extraction': 'features/data-extraction.md'
     - 'Unified Input': 'features/unified-input.md'
     - 'Workflow Automation': 'features/workflow-automation.md'
     - 'Output Options': 'features/output-options.md'

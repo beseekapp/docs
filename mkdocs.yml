@@ -1,5 +1,8 @@
-site_name: My Docs
-theme: material
+site_name: Beseek
+theme:
+  name: material
+  logo: assets/beseek-icon-white-hollow.png
+  favicon: assets/beseek-icon-white-hollow.png
 nav:
   - Home: index.md
   - Getting Started:

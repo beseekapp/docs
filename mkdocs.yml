@@ -1,8 +1,8 @@
 site_name: Beseek
 theme:
   name: material
-  logo: assets/beseek-icon-white-hollow.png
-  favicon: assets/beseek-icon-white-hollow.png
+  logo: assets/logo.png
+  favicon: assets/favicon.png
 nav:
   - Home: index.md
   - Getting Started:

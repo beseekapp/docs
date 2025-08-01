@@ -1,0 +1,17 @@
+site_name: My Docs
+nav:
+  - Home: index.md
+  - Getting Started:
+    - 'Authentication': 'getting-started/authentication.md'
+    - 'Your First Workflow': 'getting-started/user-journey.md'
+  - User Guides:
+    - 'Uploading Documents': 'user-guides/uploading-documents.md'
+    - 'Filtering and Sorting': 'user-guides/filtering-and-sorting.md'
+    - 'Analyzing Results': 'user-guides/analyzing-results.md'
+    - 'Exporting and Saving': 'user-guides/exporting-and-saving.md'
+  - Features:
+    - 'Unified Input': 'features/unified-input.md'
+    - 'Workflow Automation': 'features/workflow-automation.md'
+    - 'Output Options': 'features/output-options.md'
+    - 'On-Premise Deployment': 'features/on-premise.md'
+    - 'Prioritization Algorithm': 'features/prioritization-algorithm.md'

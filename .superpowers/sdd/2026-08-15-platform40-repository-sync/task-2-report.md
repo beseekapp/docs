@@ -59,3 +59,26 @@ $ git -C /home/amri/repos/beseekapp/docs status --short --branch
    github.com`) because the current `amri` token is invalid.
 3. No clone, fetch, pull, or other repository synchronization was performed.
 
+## Path Fix Verification
+
+The Task 1 scripts were relocated to the docs-repository roots in this worktree:
+
+- `scripts/sync-platform40-repos.sh`
+- `tests/sync-platform40-repos-test.sh`
+
+This places them at the final checkout paths expected by the workspace entry
+point: `/home/amri/repos/beseekapp/docs/scripts/sync-platform40-repos.sh` and
+`/home/amri/repos/beseekapp/docs/tests/sync-platform40-repos-test.sh`.
+
+Commands and results:
+
+```text
+$ bash tests/sync-platform40-repos-test.sh
+PASS: sync-platform40-repos
+
+$ bash -n scripts/sync-platform40-repos.sh tests/sync-platform40-repos-test.sh
+(success, no output)
+
+$ git diff --check
+(success, no output)
+```

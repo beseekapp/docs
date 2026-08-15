@@ -48,3 +48,24 @@ PASS: sync-platform40-repos
 ```
 
 The integration test now asserts zero status for dry-run and successful real runs, nonzero status for collision/origin/fetch failures, and verifies detached, non-default, and no-default repositories are fetched without pull mutation. The final failure run verifies all failures are reported and the summary is emitted.
+
+## Untracked-worktree safety regression
+
+The worktree inspection now explicitly uses `git status --porcelain
+--untracked-files=all`, so a repository configured with
+`status.showUntrackedFiles=no` is still treated as dirty and is reported
+`FETCHED ONLY` without a pull. The regression fixture sets that configuration
+and asserts the pull command is absent.
+
+Exact verification:
+
+```text
+$ bash tests/sync-platform40-repos-test.sh
+PASS: sync-platform40-repos
+
+$ bash -n scripts/sync-platform40-repos.sh tests/sync-platform40-repos-test.sh
+(success, no output)
+
+$ git diff --check
+(success, no output)
+```

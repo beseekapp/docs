@@ -12,6 +12,7 @@ mkdir -p "$fake_bin" "$test_root/workspace"
 cat > "$inventory_file" <<'INVENTORY'
 platform40-present-clean	beseekapp/platform40-present-clean	main	false
 platform40-present-dirty	beseekapp/platform40-present-dirty	main	false
+platform40-present-untracked	beseekapp/platform40-present-untracked	main	false
 platform40-archived-missing	beseekapp/platform40-archived-missing	main	true
 INVENTORY
 
@@ -57,9 +58,18 @@ case "${1:-}" in
     [[ "${2:-}" == "get-url" && "${3:-}" == "origin" ]] || exit 1
     cat "$repo/.origin"
     ;;
+  config)
+    [[ "${2:-}" == "status.showUntrackedFiles" && "${3:-}" == "no" ]] || exit 1
+    touch "$repo/.config-show-untracked-files-no"
+    ;;
   status)
-    [[ "${2:-}" == "--porcelain" ]] || exit 1
+    [[ "${2:-}" == "--porcelain" && "${3:-}" == "--untracked-files=all" ]] || exit 1
     if [[ -f "$repo/.dirty" ]]; then printf ' M tracked-file\n'; fi
+    # Model a repository configured with status.showUntrackedFiles=no. The
+    # explicit command-line option used by the sync script must override it.
+    if [[ -f "$repo/.config-show-untracked-files-no" && -f "$repo/.untracked" ]]; then
+      printf '?? untracked-file\n'
+    fi
     ;;
   symbolic-ref)
     if [[ "${2:-}" == "--short" && "${3:-}" == "-q" && -f "$repo/.branch" ]]; then cat "$repo/.branch"; exit 0; fi
@@ -82,13 +92,15 @@ export FAKE_LOG="$log_file" FAKE_INVENTORY="$inventory_file"
 export PATH="$fake_bin:$PATH"
 export PLATFORM40_ROOT="$test_root/workspace"
 
-for repo_name in platform40-present-clean platform40-present-dirty; do
+for repo_name in platform40-present-clean platform40-present-dirty platform40-present-untracked; do
   mkdir -p "$test_root/workspace/$repo_name/.git"
   printf 'beseekapp/%s\n' "$repo_name" > "$test_root/workspace/$repo_name/.origin"
   printf 'main\n' > "$test_root/workspace/$repo_name/.branch"
   printf 'before\n' > "$test_root/workspace/$repo_name/.head"
 done
 touch "$test_root/workspace/platform40-present-dirty/.dirty"
+touch "$test_root/workspace/platform40-present-untracked/.untracked"
+git -C "$test_root/workspace/platform40-present-untracked" config status.showUntrackedFiles no
 
 output=""
 run_sync() {
@@ -123,6 +135,8 @@ assert_logged "repo clone beseekapp/platform40-archived-missing"
 assert_logged "fetch --prune origin"
 assert_logged "pull --ff-only origin main"
 assert_contains "$output" "FETCHED ONLY platform40-present-dirty (dirty worktree)"
+assert_contains "$output" "FETCHED ONLY platform40-present-untracked (dirty worktree)"
+assert_not_logged "$test_root/workspace/platform40-present-untracked pull --ff-only origin main"
 
 # Real runs fetch but never mutate repositories that are detached, on another
 # branch, or have no default branch.
@@ -166,6 +180,6 @@ run_sync_expect_failure
 assert_contains "$output" "FAIL         platform40-collision (path exists and is not a Git repository)"
 assert_contains "$output" "FAIL         platform40-origin-mismatch (origin points to someone-else/platform40-origin-mismatch, expected beseekapp/platform40-origin-mismatch)"
 assert_contains "$output" "FAIL         platform40-fetch-failure (fetch failed)"
-assert_contains "$output" "Summary: cloned=0 updated=0 unchanged=2 fetched-only=4 dry-run/skipped=0 failed=3"
+assert_contains "$output" "Summary: cloned=0 updated=0 unchanged=2 fetched-only=5 dry-run/skipped=0 failed=3"
 
 printf 'PASS: sync-platform40-repos\n'

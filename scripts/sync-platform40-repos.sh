@@ -73,7 +73,7 @@ sync_repo() {
     return
   fi
 
-  if ! dirty="$(git -C "$destination" status --porcelain)"; then
+  if ! dirty="$(git -C "$destination" status --porcelain --untracked-files=all)"; then
     fail_repo "$name" "could not inspect worktree"
     return
   fi

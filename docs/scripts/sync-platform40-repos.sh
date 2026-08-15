@@ -100,7 +100,7 @@ sync_repo() {
   fi
 
   if [[ -n "$dirty" ]]; then
-    status_line "SKIP UPDATE" "$name (dirty worktree; fetched only)"
+    status_line "FETCHED ONLY" "$name (dirty worktree)"
     ((fetched_only += 1))
     return
   fi
@@ -137,8 +137,14 @@ sync_repo() {
 
 sync_inventory() {
   local inventory="$1"
-  local name full_name default_branch archived
-  while IFS=$'\t' read -r name full_name default_branch archived; do
+  local name full_name default_branch archived row remainder
+  while IFS= read -r row; do
+    name="${row%%$'\t'*}"
+    remainder="${row#*$'\t'}"
+    full_name="${remainder%%$'\t'*}"
+    remainder="${remainder#*$'\t'}"
+    default_branch="${remainder%%$'\t'*}"
+    archived="${remainder#*$'\t'}"
     [[ -n "$name" ]] || continue
     sync_repo "$name" "$full_name" "$default_branch" "$archived"
   done <<< "$inventory"

@@ -49,7 +49,7 @@ flowchart TD
 
 ### platform40-transformer
 
-- New activity `scan_file_activity`, called first in `transformer_workflow` (`src/application/workflow.py`). It downloads the file by `appwrite_file_id` and streams it to clamd over TCP (`INSTREAM`).
+- New activity `scan_file_activity`, called first in `transformer_workflow` (`src/application/workflow.py`) with a retry policy (10 s first, ×2, 6 attempts, max 5 min). It sets `scan_status=pending`, downloads the file by `appwrite_file_id`, and streams it to clamd over TCP (`INSTREAM`, stdlib socket, no new dependency).
 - Results:
   - `OK` → set `scan_status=clean`, continue with the existing steps.
   - `FOUND` → quarantine, set `infected`, publish `file.quarantined`, return without `file.transformed`.
@@ -64,12 +64,12 @@ flowchart TD
 
 ### platform40-appwrite
 
-- Add an optional `scan_status` attribute (enum `pending|clean|infected|unscannable`, no default) to `file_metadata` through the existing provisioning code.
-- Add a `quarantine` bucket with no user or team permissions (admin key only).
+- Add an optional `scan_status` attribute (`StringAttribute`, size 20, values `pending|clean|infected|unscannable`, no default) to `file_metadata` through the existing provisioning code. Provisioning has no enum type.
+- Create a `quarantine` bucket by hand in the Appwrite Console with no user or team permissions (admin key only); provisioning code doesn't manage buckets, the same as the main bucket.
 
 ### platform40-webapp
 
-- `appwrite_storage_adapter.py`: download, view and preview are refused unless `scan_status` is `clean` or empty.
+- Original-file download and preview callbacks (in `src/pages/*`) refuse to serve the file unless `scan_status` is `clean` or empty, using an `is_scan_cleared(file_meta)` guard next to `require_file_read_access`. `copy_file` carries `scan_status` to the copy.
 - File list and preview drawer show a badge: *Scanning…* (`pending`), *Removed: virus detected* (`infected`), *Could not be scanned* (`unscannable`).
 
 ## Failure handling
@@ -79,7 +79,7 @@ flowchart TD
 | clamd down or still loading signatures | Activity retries per the workflow retry policy, then goes to the existing failure path (`publish_failure_activity`). The file is never marked clean |
 | Appwrite download fails | Same as above |
 | Quarantine copy fails | Original is kept and marked `infected` (downloads blocked); the error is logged. No bytes are lost |
-| Duplicate delivery | If `scan_status` is already `clean`, `infected` or `unscannable`, the scan is skipped |
+| Duplicate delivery | Already deduplicated by the workflow instance id `transform-{file_metadata_id}`. A new revision (same record, new `appwrite_file_id`) is always rescanned: the activity resets the status to `pending` first |
 
 Consequence of decision 3: while clamd is unavailable, new files wait and are not indexed.
 
@@ -92,12 +92,15 @@ Consequence of decision 3: while clamd is unavailable, new files wait and are no
 
 ## Testing
 
-- **Transformer unit tests** with a fake clamd client: clean continues the workflow; infected is quarantined with no `file.transformed`; unscannable is quarantined; a failed quarantine copy keeps the original; a duplicate event skips the scan; `SCAN_ENABLED=false` is a no-op.
+- **Transformer unit tests** with a fake clamd client: clean continues the workflow; infected is quarantined with no `file.transformed`; unscannable is quarantined; a failed quarantine copy keeps the original; clamd unavailable leaves the file `pending`; `SCAN_ENABLED=false` is a no-op.
 - **Smoke test on the test server:**
   - Upload the EICAR test file. Expect: in the quarantine bucket, `scan_status=infected`, badge shown in webapp, absent from seeker search.
   - Upload a normal PDF. Expect: `clean`, indexed as before.
   - Watch clamav memory and confirm it stays within its limit.
 
-## Known gap (not addressed here)
+## Known gaps (not addressed here)
 
-platform40-stowage publishes `file.stowed` (Dropbox / Drive / SharePoint / FTP imports). Its docstring says transformer and indexer consume it, but no service subscribes, so imported files are neither transformed nor scanned today. When stowage files get routed into transformer, they pick up the scan automatically.
+- **Stowage imports:** platform40-stowage publishes `file.stowed` (Dropbox / Drive / SharePoint / FTP imports). Its docstring says transformer and indexer consume it, but no service subscribes, so imported files are neither transformed nor scanned today. When stowage files get routed into transformer, they pick up the scan automatically.
+- **Non-workspace files:** `file.uploaded` is published only for workspace-scope files, so My Files (user scope) and worker-scope files are not scanned. They have no `scan_status` and download as before.
+- **Older revisions:** only the head revision is scanned. Downloads of older revisions are not gated.
+- **Pre-scan window:** between upload and the start of the scan (seconds), the file has no status and is downloadable.
